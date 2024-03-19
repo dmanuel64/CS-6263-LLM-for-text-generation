@@ -4,7 +4,7 @@ from datasets import Dataset, load_dataset
 from enum import Enum
 from pathlib import Path
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
-from typing import Final, Generator
+from typing import Generator
 
 
 class SupportedModel(Enum):
@@ -56,22 +56,23 @@ class LLM:
                     yield sample
                 elif not train and idx in test_indicies:
                     yield sample
-
-        dataset: Dataset = load_dataset(
-            'flytech/python-codes-25k')['train']  # type: ignore
-        test_indicies = list(range(0, len(dataset),
-                                   math.ceil(len(dataset) / 20)))
-        cls.TRAIN_DATASET: Dataset = Dataset.from_generator(
-            generate_dataset, gen_kwargs={'train': True})  # type: ignore
-        cls.TEST_DATASET: Dataset = Dataset.from_generator(
-            generate_dataset, gen_kwargs={'train': False})  # type: ignore
-        assert len(cls.TEST_DATASET) == 20, \
-            'There should be 20 test samples, but ' + \
-            f'{len(cls.TEST_DATASET)} exist'
-        assert len(cls.TEST_DATASET) + len(cls.TRAIN_DATASET) == len(dataset), \
-            f'Test split ({len(cls.TEST_DATASET)} samples) + train split ' + \
-            f'({len(cls.TRAIN_DATASET)} samples) does not add up to ' + \
-            f'{len(dataset)} samples'
+        if not hasattr(cls, 'TRAIN_DATASET') or not hasattr(cls, 'TEST_DATASET'):
+            dataset: Dataset = \
+                load_dataset(
+                    'flytech/python-codes-25k')['train']  # type: ignore
+            test_indicies = list(range(0, len(dataset),
+                                       math.ceil(len(dataset) / 20)))
+            cls.TRAIN_DATASET: Dataset = Dataset.from_generator(
+                generate_dataset, gen_kwargs={'train': True})  # type: ignore
+            cls.TEST_DATASET: Dataset = Dataset.from_generator(
+                generate_dataset, gen_kwargs={'train': False})  # type: ignore
+            assert len(cls.TEST_DATASET) == 20, \
+                'There should be 20 test samples, but ' + \
+                f'{len(cls.TEST_DATASET)} exist'
+            assert len(cls.TEST_DATASET) + len(cls.TRAIN_DATASET) == len(dataset), \
+                f'Test split ({len(cls.TEST_DATASET)} samples) + train split ' + \
+                f'({len(cls.TRAIN_DATASET)} samples) does not add up to ' + \
+                f'{len(dataset)} samples'
         return super().__new__(cls)
 
     def __init__(self, path: Path, model: SupportedModel) -> None:
@@ -81,6 +82,11 @@ class LLM:
     @property
     def model(self) -> str:
         return self._model.display_name
+
+    def train(self) -> None:
+        trainer = self._model.get_trainer(self.TRAIN_DATASET)
+        trainer.train()
+        trainer.model.save_pretrained(self._path)
 
     @classmethod
     def from_pretrained(cls, path: Path) -> 'LLM':

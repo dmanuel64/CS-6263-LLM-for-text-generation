@@ -23,6 +23,9 @@ def command(models: Annotated[Path, Argument(file_okay=False)],
     if not models.exists():
         models.mkdir(exist_ok=True, parents=True)
         llms = [LLM(models / m.directory_name, m) for m in SupportedModel]
+        # Fine-tune models on dataset
+        for llm in llms:
+            llm.train()
     else:
         llms = [LLM.from_pretrained(p) for p in models.glob('*')]
         if len(llms) < len(SupportedModel):

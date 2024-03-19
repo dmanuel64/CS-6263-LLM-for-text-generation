@@ -10,7 +10,7 @@ pip install git+https://github.com/dmanuel64/LLM-for-text-generation.git#egg=llm
 ```
 
 ## Usage
-The tool requires an argument to store/load the fine-tuned models. To display the default metrics of the models against the test split, run the following command where `<path/to/fine_tuned_models>` is the actual path of where the models are stored:
+For general usage information:
 ```
-python -m llmftg <path/to/fine_tuned_models>
+python -m llmftg --help
 ```

@@ -17,4 +17,4 @@ Main CLI app.
 
 @app.command()
 def command(models: Annotated[Path, Argument(file_okay=False)]) -> None:
-    pass
+    print(LLM(models, SupportedModel.LLAMA))

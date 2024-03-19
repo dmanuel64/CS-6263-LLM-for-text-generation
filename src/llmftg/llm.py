@@ -1,7 +1,10 @@
+import math
+
 from datasets import Dataset, load_dataset
 from enum import Enum
 from pathlib import Path
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
+from typing import Final, Generator
 
 
 class SupportedModel(Enum):
@@ -43,6 +46,33 @@ class SupportedModel(Enum):
 
 
 class LLM:
+
+    def __new__(cls, *args, **kwargs) -> 'LLM':
+
+        def generate_dataset(train: bool) -> Generator[dict[str, str], None, None]:
+            nonlocal dataset, test_indicies
+            for idx, sample in enumerate(dataset):
+                if train and idx not in test_indicies:
+                    yield sample
+                elif not train and idx in test_indicies:
+                    yield sample
+
+        dataset: Dataset = load_dataset(
+            'flytech/python-codes-25k')['train']  # type: ignore
+        test_indicies = list(range(0, len(dataset),
+                                   math.ceil(len(dataset) / 20)))
+        cls.TRAIN_DATASET: Dataset = Dataset.from_generator(
+            generate_dataset, gen_kwargs={'train': True})  # type: ignore
+        cls.TEST_DATASET: Dataset = Dataset.from_generator(
+            generate_dataset, gen_kwargs={'train': False})  # type: ignore
+        assert len(cls.TEST_DATASET) == 20, \
+            'There should be 20 test samples, but ' + \
+            f'{len(cls.TEST_DATASET)} exist'
+        assert len(cls.TEST_DATASET) + len(cls.TRAIN_DATASET) == len(dataset), \
+            f'Test split ({len(cls.TEST_DATASET)} samples) + train split ' + \
+            f'({len(cls.TRAIN_DATASET)} samples) does not add up to ' + \
+            f'{len(dataset)} samples'
+        return super().__new__(cls)
 
     def __init__(self, path: Path, model: SupportedModel) -> None:
         self._path = path

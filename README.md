@@ -1,4 +1,6 @@
 # LLMs for Code Generation
+**Note:** You must have a GPU to install and run this tool.
+
 A tool demonstrating how to use LLMs for code generation using Hugging Face and PyTorch. This tool fine-tunes Llama2, Phi-2, and Mistral LLMs on a train split of the [flytech/python-codes-25k](https://huggingface.co/datasets/flytech/python-codes-25k) dataset, where 20 samples will be the test split. The tool displays various metrics regarding the models' generated code quality, and allows the user to tune hyperparameters to see how each hyperparameter affects the quality of the output.
 
 Assignment 1.3 for CS 6263: Natural Language Processing

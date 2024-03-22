@@ -61,22 +61,11 @@ class SupportedModel(Enum):
 class LLM:
 
     def __new__(cls, *args, **kwargs) -> 'LLM':
-        def create_conversation(sample: dict[str, str]) -> dict[Literal['messages'], list[dict[Literal['role', 'content'], str]]]:
-            return {
-                'messages': [
-                    {'role': 'system', 'content': 'You are a text to Python code translator. ' +
-                     'Users will give you coding tasks in English and you will generate Python code based on the provided text.'},
-                    {'role': 'user', 'content': sample['instruction']},
-                    {'role': 'assistant', 'content': sample['output']}
-                ]
-            }
         if not hasattr(cls, 'DATASET'):
             logger.info('Creating test and train split')
             # Create training split and test split from the dataset
             dataset: Dataset = load_dataset('flytech/python-codes-25k',
                                             split='train')  # type: ignore
-            # dataset.map(create_conversation, remove_columns=dataset.features,
-            #             batched=False)
             cls.DATASET = dataset.train_test_split(test_size=20/len(dataset))
             cls.DATASET['train'] = cls.DATASET['train'].shuffle()
         return super().__new__(cls)
@@ -89,18 +78,23 @@ class LLM:
     def model(self) -> str:
         return self._model.display_name
 
-    def train(self) -> None:
+    def train(self, num_samples: int | None = None, batch_size: int = 3) -> None:
         if self._path.exists():
             raise ValueError(f'{self.model} is already fine-tuned')
+        if not num_samples:
+            samples = LLM.DATASET['train']
+        elif num_samples <= 0 or num_samples > len(LLM.DATASET['train']):
+            raise ValueError('num_samples must be greater than 0 and less than ' +
+                             f'{len(LLM.DATASET['train']) + 1}')
+        else:
+            samples = Dataset.from_dict(LLM.DATASET['train'][:num_samples])
         torch.cuda.empty_cache()
         hf_model, tokenizer = setup_chat_format(self._model.get_hf('model'),
                                                 self._model.get_hf('tokenizer'))
-        # Fine-tuning LLMs source: https://www.philschmid.de/fine-tune-llms-in-2024-with-trl
         trainer = SFTTrainer(model=hf_model,
                              tokenizer=tokenizer,
-                             train_dataset=LLM.DATASET['train'],
+                             train_dataset=samples,
                              max_seq_length=3072,
-                             packing=True,
                              peft_config=LoraConfig(
                                  lora_alpha=128,
                                  lora_dropout=0.05,
@@ -113,20 +107,11 @@ class LLM:
                              args=TrainingArguments(
                                  output_dir=str(
                                      self._path.parent / f'.{self._model.display_name}_checkpoints'),
-                                 num_train_epochs=3,
-                                 per_device_train_batch_size=3,
-                                 gradient_accumulation_steps=2,
+                                 per_device_train_batch_size=batch_size,
                                  gradient_checkpointing=True,
-                                 optim='adamw_torch_fused',
-                                 logging_steps=10,
-                                 save_strategy='epoch',
-                                 learning_rate=2e-4,
-                                 max_grad_norm=0.3,
-                                 warmup_ratio=0.03,
-                                 lr_scheduler_type='constant',
                              ))
-        logger.info(f'Training {self.model}')
-        trainer.train()
+        logger.info(f'Training {len(samples)} samples on {self.model}')
+        trainer.train()  # type: ignore
         trainer.model.save_pretrained(self._path)
 
     def test(self, top_k: int, beam_size: int, temperature: float, num_samples: int | None = None) -> dict[str, float]:

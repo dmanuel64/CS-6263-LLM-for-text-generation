@@ -1,3 +1,3 @@
-from llmftg.cli import app
+from llmftg import run_cli
 
-app()
+run_cli()

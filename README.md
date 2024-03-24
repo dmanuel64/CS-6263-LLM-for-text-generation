@@ -10,15 +10,15 @@ pip install git+https://github.com/dmanuel64/LLM-for-text-generation.git#egg=llm
 ```
 Specify a path to store/load the fine-tuned models:
 ```
-llmftg ~/fine_tuned_models
+python -m llmftg ~/fine_tuned_models
 ```
 To run with `accelerate` (potentially faster training time,) run with `--accelerate`:
 ```
-llmftg ~/fine_tuned_models --accelerate
+python -m llmftg ~/fine_tuned_models --accelerate
 ```
 
 ## Usage
 For general usage information:
 ```
-llmftg --help
+python -m llmftg --help
 ```

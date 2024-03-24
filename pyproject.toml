@@ -24,9 +24,6 @@ dependencies = [
 "Homepage" = "https://github.com/dmanuel64/LLM-for-text-generation"
 "Bug Tracker" = "https://github.com/dmanuel64/LLM-for-text-generation/issues"
 
-[project.scripts]
-llmftg = "llmftg:run_cli"
-
 [tool.setuptools.packages.find]
 where = ["src"]
 

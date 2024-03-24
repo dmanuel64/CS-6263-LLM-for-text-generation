@@ -56,6 +56,10 @@ def command(models: Annotated[Path, Argument(file_okay=False,
             verbose: Annotated[bool, Option(
                 help='Display verbose logging information.')] = False,
             accelerate: Annotated[bool, Option(help='Run with accelerate enabled')] = False) -> None:
+    '''
+    Fine-tunes LLama 2, Phi-2, and Mistral 7B on the flytech/python-codes-25k dataset, demonstrating how LLM
+    hyperparameters such as top_k, beam_size, and temperature affect the generated output of the model.
+    '''
     _toggle_logging(verbose)
     if accelerate:
         # Relaunch script in accelerate process
@@ -86,6 +90,5 @@ def command(models: Annotated[Path, Argument(file_okay=False,
                                'Use --retrain to clear the directory',
                                param_hint='models')
         for llm in (LLM.from_pretrained(i) for i in items):
-            if 'Phi' in llm.model:
-                print(llm.test(top_k=top_k, beam_size=beam_size, temperature=temperature,
-                               num_samples=test_samples))
+            print(llm.test(top_k=top_k, beam_size=beam_size, temperature=temperature,
+                           num_samples=test_samples))

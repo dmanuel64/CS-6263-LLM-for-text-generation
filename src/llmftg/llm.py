@@ -1,10 +1,15 @@
 import logging
 import torch
 
+from bert_score import score as bertscore
 from datasets import Dataset, load_dataset
 from enum import Enum
+from nltk.translate.bleu_score import corpus_bleu
+from nltk.translate.bleu_score import SmoothingFunction
+from nltk.translate.bleu_score import sentence_bleu
 from pathlib import Path
 from peft.tuners.lora import LoraConfig
+from rouge import Rouge
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, PreTrainedModel, PreTrainedTokenizer, TrainingArguments
 from trl import setup_chat_format
 from trl.trainer import SFTTrainer
@@ -114,7 +119,7 @@ class LLM:
         trainer.train()  # type: ignore
         trainer.model.save_pretrained(self._path)
 
-    def test(self, top_k: int, beam_size: int, temperature: float, num_samples: int | None = None) -> dict[str, float]:
+    def test(self, top_k: int, beam_size: int, temperature: float, num_samples: int | None = None) -> dict[Literal['BLEU', 'Rouge-L', 'BERTScore', 'CodeBLEU'], float]:
         # Check parameters
         if top_k < 1:
             raise ValueError('top_k must be a positive integer')
@@ -134,7 +139,45 @@ class LLM:
         # Evaluate samples
         logger.info(f'Evaluating {len(samples)} samples on {self.model}')
         pipe = pipeline('text-generation', str(self._path),
-                        tokenizer=self._model.get_hf('tokenizer'))
+                        tokenizer=self._model.get_hf('tokenizer'),
+                        trust_remote_code=True)
+        outputs: list[str] = []
+        targets: list[str] = []
+        for sample in samples:
+            logger.info(f'User: {sample["instruction"]}')  # type: ignore
+            output: str = pipe(sample['instruction'])[0]['generated_text']  # type: ignore
+            outputs.append(output)  # type: ignore
+            logger.info(f'{self.model}: {output}')
+            expected_output = '\n'.join(
+                [sample['input'], sample['output']])  # type: ignore
+            logger.debug(f'Ground Truth: {expected_output}')
+            targets.append(expected_output)
+        logger.info('Calculating metrics')
+        return {
+            'BLEU': sum(LLM.get_bleu_score(output, target) for output, target in zip(outputs, targets)) / len(outputs),
+            'Rouge-L': sum(LLM.get_rouge_l_score(output, target) for output, target in zip(outputs, targets)) / len(outputs),
+            'BERTScore': sum(LLM.get_bertscore(output, target) for output, target in zip(outputs, targets)) / len(outputs),
+            'CodeBLEU': sum(LLM.get_code_bleu_score(output, target) for output, target in zip(outputs, targets)) / len(outputs)
+        }
+
+    @staticmethod
+    def get_bleu_score(sample: str, target: str) -> float:
+        print(sentence_bleu([target.split()], sample.split(), smoothing_function=SmoothingFunction().method1))
+        exit()
+        return sentence_bleu([target.split()], sample.split(), smoothing_function=SmoothingFunction().method1)
+
+    @staticmethod
+    def get_rouge_l_score(sample: str, target: str) -> float:
+        return Rouge().get_scores([sample], [target], avg=True)['rouge-l']['f']
+
+    @staticmethod
+    def get_bertscore(sample: str, target: str) -> float:
+        _, __, f1 = bertscore([sample], [target], lang="en")
+        return f1.mean().item()
+
+    @staticmethod
+    def get_code_bleu_score(sample: str, target: str) -> float:
+        return sentence_bleu([sample], target)
 
     @classmethod
     def from_pretrained(cls, path: Path) -> 'LLM':

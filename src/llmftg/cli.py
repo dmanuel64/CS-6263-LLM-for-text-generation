@@ -86,5 +86,6 @@ def command(models: Annotated[Path, Argument(file_okay=False,
                                'Use --retrain to clear the directory',
                                param_hint='models')
         for llm in (LLM.from_pretrained(i) for i in items):
-            llm.test(top_k=top_k, beam_size=beam_size, temperature=temperature,
-                     num_samples=test_samples)
+            if 'Phi' in llm.model:
+                print(llm.test(top_k=top_k, beam_size=beam_size, temperature=temperature,
+                               num_samples=test_samples))

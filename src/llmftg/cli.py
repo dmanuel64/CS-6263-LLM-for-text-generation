@@ -6,6 +6,7 @@ from llmftg.llm import LLM, SupportedModel
 
 from pathlib import Path
 from rich import print
+from rich.table import Table
 from typer import Argument, BadParameter, Option, Typer
 from typing import Annotated
 
@@ -36,7 +37,7 @@ def command(models: Annotated[Path, Argument(file_okay=False,
             top_k: Annotated[int, Option(min=1,
                                          help='The top k most likely tokens considered when sampling. ' +
                                          'This parameter helps the models from generating unlikely or ' +
-                                         'nonsensical tokens.')] = 50,
+                                         'nonsensical tokens.')] = 20,
             beam_size: Annotated[int, Option(min=1,
                                              help='Number of beams to use during beam search decoding. ' +
                                              'A larger beam size can lead to more diverse, but potentially ' +
@@ -89,6 +90,17 @@ def command(models: Annotated[Path, Argument(file_okay=False,
             raise BadParameter(f'Expected {len(SupportedModel)} models in {models}. ' +
                                'Use --retrain to clear the directory',
                                param_hint='models')
-        for llm in (LLM.from_pretrained(i) for i in items):
-            print(llm.test(top_k=top_k, beam_size=beam_size, temperature=temperature,
-                           num_samples=test_samples))
+        # Evaluate LLMs and collect metrics
+        metrics = {m.model: m.test(top_k=top_k, beam_size=beam_size, temperature=temperature,
+                                   num_samples=test_samples) for m in (LLM.from_pretrained(i) for i in items)}
+        # Create table
+        table = Table(title='Fine-Tuned Model Results')
+        for column in ['Model', 'Top k', 'Beam Size', 'Temperature', 'BLEU', 'Rouge-L', 'BERTScore', 'CodeBLEU']:
+            table.add_column(column)
+        for model, model_metrics in metrics.items():
+            table.add_row(model, str(top_k), str(beam_size), str(temperature),
+                          f"{round(model_metrics['BLEU'], 3)}",
+                          f"{round(model_metrics['Rouge-L'], 3)}",
+                          f"{round(model_metrics['BERTScore'], 3)}",
+                          f"{round(model_metrics['CodeBLEU'], 3)}")
+        print(table)

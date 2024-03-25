@@ -17,6 +17,12 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 dependencies = [
+    "bert-score>=0.3.13",
+    "datasets>=2.18.0",
+    "peft>=0.9.0",
+    "rouge>=1.0.1",
+    "transformers[torch,deepspeed]==4.36.2",
+    "trl>=0.8.1",
     "typer[all]>=0.9.0"
 ]
 

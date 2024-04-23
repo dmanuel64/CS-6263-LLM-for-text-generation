@@ -240,6 +240,19 @@ class LLM:
             'CodeBLEU': sum(LLM.get_code_bleu_score(output, target) for output, target in zip(outputs, targets)) / len(outputs)
         }
 
+    def show_layers(self) -> None:
+        prompt = 'Write a "hello world" program in Python3.'
+        pipe = pipeline('text-generation', str(self._path),
+                        tokenizer=self._model.get_hf('tokenizer'),
+                        trust_remote_code=True)
+        model = pipe.model
+        tokenizer = pipe.tokenizer
+
+        inputs = tokenizer(prompt, return_tensors="pt")
+        outputs = model(**inputs)
+        
+        print(model)
+
     @staticmethod
     def get_bleu_score(sample: str, target: str) -> float:
         '''
@@ -304,7 +317,7 @@ class LLM:
 
         Parameters:
             path: Path to the fine-tuned model.
-        
+
         Returns:
             The fine-tuned LLM.
         '''

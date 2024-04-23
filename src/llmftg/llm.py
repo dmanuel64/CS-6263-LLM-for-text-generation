@@ -250,6 +250,7 @@ class LLM:
         '''
         path.mkdir(parents=True, exist_ok=True)
         prompt = 'Write a "hello world" program in Python3.'
+        expected_out = 'print("Hello, world")'
         pipe = pipeline('text-generation', str(self._path),
                         tokenizer=self._model.get_hf('tokenizer'),
                         trust_remote_code=True)
@@ -281,6 +282,12 @@ class LLM:
             fig = go.Figure(data=[go.Bar(x=[i[0] for i in token_probs], y=[i[1] for i in token_probs])])
             fig.update_layout(title='Token Probabilities', xaxis_title='Token', yaxis_title='Probability')
             fig.write_image(path / f'layer_{layer_num}_probabilities.png')
+            # Print metrics
+            next_token = token_probs[0][0]
+            print(f'BLEU: {LLM.get_bleu_score(next_token, expected_out)}')
+            print(f'Rouge-L: {LLM.get_rouge_l_score(next_token, expected_out)}')
+            print(f'BERTScore: {LLM.get_bertscore(next_token, expected_out)}')
+            print(f'CodeBLEU: {LLM.get_code_bleu_score(next_token, expected_out)}')
             print()
 
     @staticmethod

@@ -251,7 +251,23 @@ class LLM:
         inputs = tokenizer(prompt, return_tensors="pt")
         outputs = model(**inputs)
         
-        print(model)
+        # Specify the layers for which you want to print the probabilities
+        layers = [1, 2, 4, 8]
+
+        # Print the probabilities for each layer
+        for layer_num in layers:
+            layer_logits = outputs["logits"].squeeze()[layer_num]
+            layer_probs = torch.softmax(layer_logits, dim=-1)
+
+            # Convert token IDs to tokens
+            tokens = tokenizer.convert_ids_to_tokens(range(len(layer_probs)))
+
+            # Print the probabilities for each token
+            print(f"Layer {layer_num} token probabilities:")
+            token_probs = list((token, prob) for token, prob in zip(tokens, layer_probs) if not token.startswith('<'))
+            for token, prob in token_probs[:20]:
+                print(f"{token}: {prob.item()}")
+            print()
 
     @staticmethod
     def get_bleu_score(sample: str, target: str) -> float:

@@ -3,6 +3,7 @@ Large language models for code generation.
 '''
 
 import logging
+import plotly.graph_objects as go
 import sacrebleu
 import torch
 
@@ -240,7 +241,14 @@ class LLM:
             'CodeBLEU': sum(LLM.get_code_bleu_score(output, target) for output, target in zip(outputs, targets)) / len(outputs)
         }
 
-    def show_layers(self) -> None:
+    def create_layers_image(self, path: Path) -> None:
+        '''
+        Creates images from layers, 4, 8, 16, and 32, showing the token probability distribution.
+
+        Parameters:
+            path: Path to the directory where the images should be stored.
+        '''
+        path.mkdir(parents=True, exist_ok=True)
         prompt = 'Write a "hello world" program in Python3.'
         pipe = pipeline('text-generation', str(self._path),
                         tokenizer=self._model.get_hf('tokenizer'),
@@ -248,7 +256,7 @@ class LLM:
         model = pipe.model
         tokenizer = pipe.tokenizer
 
-        inputs = tokenizer(prompt, return_tensors="pt")
+        inputs = tokenizer(prompt, return_tensors='pt')
         outputs = model(**inputs)
         
         # Specify the layers for which you want to print the probabilities
@@ -256,17 +264,23 @@ class LLM:
 
         # Print the probabilities for each layer
         for layer_num in layers:
-            layer_logits = outputs["logits"].squeeze()[layer_num]
+            layer_logits = outputs['logits'].squeeze()[layer_num]
             layer_probs = torch.softmax(layer_logits, dim=-1)
 
             # Convert token IDs to tokens
             tokens = tokenizer.convert_ids_to_tokens(range(len(layer_probs)))
 
             # Print the probabilities for each token
-            print(f"Layer {layer_num} token probabilities:")
-            token_probs = list((token, prob) for token, prob in zip(tokens, layer_probs) if not token.startswith('<'))
-            for token, prob in token_probs[:20]:
+            print(f'Layer {layer_num} token probabilities:')
+            token_probs = list((token, prob.detach().numpy()) for token, prob in zip(tokens, layer_probs) if not token.startswith('<'))
+            token_probs.sort(key=lambda x: x[1], reverse=True)
+            token_probs = token_probs[:20]
+            for token, prob in token_probs:
                 print(f"{token}: {prob.item()}")
+            # Create a bar chart
+            fig = go.Figure(data=[go.Bar(x=[i[0] for i in token_probs], y=[i[1] for i in token_probs])])
+            fig.update_layout(title='Token Probabilities', xaxis_title='Token', yaxis_title='Probability')
+            fig.write_image(path / f'layer_{layer_num}_probabilities.png')
             print()
 
     @staticmethod
